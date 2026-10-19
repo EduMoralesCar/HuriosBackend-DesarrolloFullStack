@@ -1,0 +1,10 @@
+target/
+.idea/
+.vscode/
+*.log
+.env
+.env.*
+uploads/backups/
+data/
+uploads/products/*
+!uploads/products/.gitkeep
