@@ -4,6 +4,7 @@ target/
 *.log
 .env
 .env.*
+!.env.example
 uploads/backups/
 data/
 uploads/products/*
