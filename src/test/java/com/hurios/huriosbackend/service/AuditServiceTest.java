@@ -1,8 +1,8 @@
 package com.hurios.huriosbackend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hurios.huriosbackend.entity.AuditLog;
-import com.hurios.huriosbackend.repository.AuditLogRepository;
+import com.hurios.huriosbackend.document.AuditLog;
+import com.hurios.huriosbackend.repository.mongo.AuditLogRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,10 +22,10 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Pruebas unitarias para AuditService.
+ * Pruebas unitarias para AuditService (MongoDB).
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("AuditService - Pruebas Unitarias")
+@DisplayName("AuditService (MongoDB) - Pruebas Unitarias")
 class AuditServiceTest {
 
     @Mock
@@ -41,7 +41,7 @@ class AuditServiceTest {
     private AuditService auditService;
 
     @Test
-    @DisplayName("logAction debe guardar un AuditLog con detalles en JSON")
+    @DisplayName("logAction debe guardar un documento AuditLog con detalles en JSON")
     void testLogAction_Success() throws Exception {
         // ARRANGE
         Map<String, Object> details = new HashMap<>();
@@ -75,6 +75,7 @@ class AuditServiceTest {
         assertEquals("JUnit", saved.getUserAgent());
         assertEquals("{\"key\":\"value\"}", saved.getDetails());
         assertEquals("SUCCESS", saved.getStatus());
+        assertNotNull(saved.getCreatedAt());
     }
 
     @Test
@@ -122,7 +123,7 @@ class AuditServiceTest {
     }
 
     @Test
-    @DisplayName("getUserLogs debe delegar en el repositorio")
+    @DisplayName("getUserLogs debe delegar en el repositorio MongoDB")
     void testGetUserLogs_DelegatesToRepository() {
         // ARRANGE
         List<AuditLog> logs = List.of(new AuditLog());
@@ -137,7 +138,7 @@ class AuditServiceTest {
     }
 
     @Test
-    @DisplayName("getLogsInDateRange debe delegar en el repositorio")
+    @DisplayName("getLogsInDateRange debe delegar en el repositorio MongoDB")
     void testGetLogsInDateRange_DelegatesToRepository() {
         // ARRANGE
         LocalDateTime start = LocalDateTime.now().minusDays(1);
@@ -154,24 +155,25 @@ class AuditServiceTest {
     }
 
     @Test
-    @DisplayName("getActionStatistics debe construir mapa a partir de resultados crudos")
+    @DisplayName("getActionStatistics debe agrupar documentos por accion")
     void testGetActionStatistics_BuildsMap() {
         // ARRANGE
-        Object[] row1 = new Object[]{"LOGIN", 5L};
-        Object[] row2 = new Object[]{"LOGOUT", 2L};
-        when(auditLogRepository.getActionStatistics()).thenReturn(List.of(row1, row2));
+        AuditLog l1 = new AuditLog("LOGIN", "USER", 1L, 1L, "a@test.com");
+        AuditLog l2 = new AuditLog("LOGIN", "USER", 2L, 2L, "b@test.com");
+        AuditLog l3 = new AuditLog("LOGOUT", "USER", 1L, 1L, "a@test.com");
+        when(auditLogRepository.findAll()).thenReturn(List.of(l1, l2, l3));
 
         // ACT
         Map<String, Long> stats = auditService.getActionStatistics();
 
         // ASSERT
         assertEquals(2, stats.size());
-        assertEquals(5L, stats.get("LOGIN"));
-        assertEquals(2L, stats.get("LOGOUT"));
+        assertEquals(2L, stats.get("LOGIN"));
+        assertEquals(1L, stats.get("LOGOUT"));
     }
 
     @Test
-    @DisplayName("getFailedActions debe delegar en el repositorio")
+    @DisplayName("getFailedActions debe delegar en el repositorio MongoDB")
     void testGetFailedActions_DelegatesToRepository() {
         // ARRANGE
         List<AuditLog> logs = List.of(new AuditLog());
