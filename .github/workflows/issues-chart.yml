@@ -1,0 +1,134 @@
+name: Genera grafico de issues por tipo
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # Todos los lunes a las 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  build-chart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: pip install matplotlib requests
+
+      - name: Obtener issues y contar por label
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 << 'EOF'
+          import os
+          import requests
+          import json
+          from collections import Counter
+
+          repo = os.environ["REPO"]
+          token = os.environ["GITHUB_TOKEN"]
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json"
+          }
+
+          labels_counter = Counter()
+          page = 1
+
+          while True:
+              url = f"https://api.github.com/repos/{repo}/issues"
+              params = {"state": "all", "per_page": 100, "page": page}
+              resp = requests.get(url, headers=headers, params=params)
+              resp.raise_for_status()
+              data = resp.json()
+
+              if not data:
+                  break
+
+              for issue in data:
+                  # Ignorar pull requests (la API de issues las incluye)
+                  if "pull_request" in issue:
+                      continue
+
+                  labels = issue.get("labels", [])
+                  if not labels:
+                      labels_counter["sin-label"] += 1
+                  else:
+                      for label in labels:
+                          labels_counter[label["name"]] += 1
+
+              page += 1
+
+          with open("issues_por_label.json", "w") as f:
+              json.dump(dict(labels_counter), f, indent=2)
+
+          print("Conteo por label:", dict(labels_counter))
+          EOF
+
+      - name: Generar grafico
+        run: |
+          python3 << 'EOF'
+          import json
+          import matplotlib
+          matplotlib.use("Agg")
+          import matplotlib.pyplot as plt
+
+          with open("issues_por_label.json") as f:
+              data = json.load(f)
+
+          if not data:
+              print("No hay issues para graficar.")
+              exit(0)
+
+          # Ordenar de mayor a menor
+          items = sorted(data.items(), key=lambda x: x[1], reverse=True)
+          labels = [i[0] for i in items]
+          counts = [i[1] for i in items]
+
+          # Paleta de colores distintos por cada label
+          cmap = plt.get_cmap("tab20")
+          colors = [cmap(i % 20) for i in range(len(labels))]
+
+          plt.figure(figsize=(8, 8))
+          plt.pie(
+              counts,
+              labels=labels,
+              colors=colors,
+              autopct=lambda pct: f"{pct:.1f}%\n({int(round(pct/100*sum(counts)))})",
+              startangle=90,
+              pctdistance=0.8,
+              textprops={"fontsize": 12}
+          )
+          plt.title("Issues por tipo (label)")
+          plt.axis("equal")  # Asegura que el pie quede circular, no ovalado
+
+          plt.tight_layout()
+          plt.savefig("issues_por_label.png", dpi=150)
+          EOF
+
+      - name: Subir grafico como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: issues-chart
+          path: issues_por_label.png
+
+      - name: Commitear grafico al repositorio
+        run: |
+          mkdir -p docs
+          mv issues_por_label.png docs/issues_por_label.png
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/issues_por_label.png
+          git diff --staged --quiet || git commit -m "chore: actualiza grafico de issues por tipo [skip ci]"
+          git push

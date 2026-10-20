@@ -1,0 +1,10 @@
+.git
+.github
+.idea
+.vscode
+target
+data
+uploads/backups
+spring-run-out.log
+spring-run-err.log
+*.log
