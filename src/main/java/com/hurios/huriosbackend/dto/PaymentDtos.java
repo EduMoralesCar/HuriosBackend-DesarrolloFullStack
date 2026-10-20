@@ -247,4 +247,176 @@ public class PaymentDtos {
             this.orderNumber = orderNumber;
         }
     }
+
+    public static class CheckoutPreferenceResponse {
+        private boolean success;
+        private Long saleId;
+        private String preferenceId;
+        private String initPoint;
+        private String sandboxInitPoint;
+        private String transactionId;
+        private String message;
+
+        public CheckoutPreferenceResponse() {
+        }
+
+        public CheckoutPreferenceResponse(boolean success, Long saleId, String preferenceId,
+                                          String initPoint, String sandboxInitPoint,
+                                          String transactionId, String message) {
+            this.success = success;
+            this.saleId = saleId;
+            this.preferenceId = preferenceId;
+            this.initPoint = initPoint;
+            this.sandboxInitPoint = sandboxInitPoint;
+            this.transactionId = transactionId;
+            this.message = message;
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public void setSuccess(boolean success) {
+            this.success = success;
+        }
+
+        public Long getSaleId() {
+            return saleId;
+        }
+
+        public void setSaleId(Long saleId) {
+            this.saleId = saleId;
+        }
+
+        public String getPreferenceId() {
+            return preferenceId;
+        }
+
+        public void setPreferenceId(String preferenceId) {
+            this.preferenceId = preferenceId;
+        }
+
+        public String getInitPoint() {
+            return initPoint;
+        }
+
+        public void setInitPoint(String initPoint) {
+            this.initPoint = initPoint;
+        }
+
+        public String getSandboxInitPoint() {
+            return sandboxInitPoint;
+        }
+
+        public void setSandboxInitPoint(String sandboxInitPoint) {
+            this.sandboxInitPoint = sandboxInitPoint;
+        }
+
+        public String getTransactionId() {
+            return transactionId;
+        }
+
+        public void setTransactionId(String transactionId) {
+            this.transactionId = transactionId;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
+    }
+
+    public static class PaymentVerificationResponse {
+        private boolean approved;
+        private Long saleId;
+        private String status;
+        private String mpPaymentId;
+        private String paymentMethod;
+        private Double total;
+        private String transactionId;
+        private String message;
+
+        public PaymentVerificationResponse() {
+        }
+
+        public PaymentVerificationResponse(boolean approved, Long saleId, String status,
+                                           String mpPaymentId, String paymentMethod,
+                                           Double total, String transactionId, String message) {
+            this.approved = approved;
+            this.saleId = saleId;
+            this.status = status;
+            this.mpPaymentId = mpPaymentId;
+            this.paymentMethod = paymentMethod;
+            this.total = total;
+            this.transactionId = transactionId;
+            this.message = message;
+        }
+
+        public boolean isApproved() {
+            return approved;
+        }
+
+        public void setApproved(boolean approved) {
+            this.approved = approved;
+        }
+
+        public Long getSaleId() {
+            return saleId;
+        }
+
+        public void setSaleId(Long saleId) {
+            this.saleId = saleId;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getMpPaymentId() {
+            return mpPaymentId;
+        }
+
+        public void setMpPaymentId(String mpPaymentId) {
+            this.mpPaymentId = mpPaymentId;
+        }
+
+        public String getPaymentMethod() {
+            return paymentMethod;
+        }
+
+        public void setPaymentMethod(String paymentMethod) {
+            this.paymentMethod = paymentMethod;
+        }
+
+        public Double getTotal() {
+            return total;
+        }
+
+        public void setTotal(Double total) {
+            this.total = total;
+        }
+
+        public String getTransactionId() {
+            return transactionId;
+        }
+
+        public void setTransactionId(String transactionId) {
+            this.transactionId = transactionId;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
+    }
 }
