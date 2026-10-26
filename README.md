@@ -1,150 +1,231 @@
-# HuriosRally Backend
+# Hurios Rally - Backend API & Real-Time Server
 
-Backend en Spring Boot para la plataforma Hurios Rally. El proyecto ya incluye la base funcional para autenticación, gestión de usuarios, productos, ventas, exportaciones, carga de imágenes y respaldos.
+Backend empresarial en **Spring Boot 3.5.6 (Java 17)** para el e-commerce de repuestos automotrices **Hurios Rally E.I.R.L.** Implementa una arquitectura híbrida de persistencia (**PostgreSQL** en Supabase + **MongoDB Atlas**), pasarela de pagos real con **MercadoPago Checkout Pro**, seguridad **JWT + RBAC**, y comunicación bidireccional en tiempo real mediante **WebSockets**.
 
-## Qué hace
+- **URL Desplegada (Render):** `https://huriosbackend-desarrollofullstack.onrender.com`
+- **Documentación Swagger / OpenAPI:** `https://huriosbackend-desarrollofullstack.onrender.com/documentacion`
 
-- Autenticación con JWT, registro de usuarios y recuperación de contraseña.
-- Gestión de perfil de usuario y carga de imagen de perfil.
-- CRUD de productos y actualización de stock.
-- Registro y consulta de ventas y órdenes del usuario.
-- Exportación de clientes, productos y ventas a Excel.
-- Subida de imágenes a almacenamiento local o Supabase Storage.
-- Generación de respaldos de configuración.
-- Documentación Swagger/OpenAPI y endpoint público de estado.
-- Métricas del backend con Actuator.
+---
 
-## Tecnologías y servicios
+## 1. Arquitectura de Datos Híbrida (Relacional + NoSQL)
 
-- Spring Boot 3.5.6
-- Java 17
-- Spring Security
-- Spring Data JPA
-- PostgreSQL
-- H2 para desarrollo local
-- Springdoc OpenAPI / Swagger UI
-- JJWT para tokens JWT
-- Apache POI para exportación a Excel
-- Spring Mail para correos
-- Micrometer y Actuator para observabilidad
-- Supabase para base de datos y almacenamiento, cuando está configurado
+El sistema emplea **Persistencia Políglota** separando las responsabilidades transaccionales ACID de los documentos flexibles de alta frecuencia:
 
-## Funcionalidad expuesta
+- **PostgreSQL (Supabase) — Entidades Relacionales (`com.hurios.huriosbackend.entity`):**
+  Gestiona usuarios, catálogo maestro de productos/stock, órdenes de venta (`Sale`) y detalle de líneas de orden (`SaleItem`).
+- **MongoDB Atlas (`hurios_rally`) — Colecciones Documentales (`com.hurios.huriosbackend.document`):**
+  Gestiona la bitácora de auditoría (`audit_logs`), los carritos de compra sincronizados en la nube (`carts`), el historial detallado de intentos y webhooks de la pasarela MercadoPago (`payment_transactions`), y las reseñas/calificaciones de productos (`product_reviews`).
 
-### Autenticación
-- `POST /auth/register`: crea un usuario nuevo.
-- `POST /auth/login`: autentica y devuelve acceso.
-- `POST /auth/send-verification-code`: envía código de verificación.
-- `POST /auth/verify-code`: valida el código y confirma la sesión.
-- `POST /auth/request-password-reset`: inicia recuperación de contraseña.
-- `POST /auth/reset-password`: restablece la contraseña.
+### Diagrama Entidad-Relación (PostgreSQL - Relacional)
 
-### Usuarios
-- `GET /user/profile`: obtiene el perfil autenticado.
-- `PUT /user/profile`: actualiza datos del perfil.
-- `POST /user/profile-image`: sube la imagen del perfil.
+```mermaid
+erDiagram
+    USERS ||--o{ SALES : "realiza"
+    USERS ||--o{ VERIFICATION_TOKENS : "posee"
+    SALES ||--|{ SALE_ITEMS : "contiene"
+    PRODUCTS ||--o{ SALE_ITEMS : "referenciado_en"
 
-### Productos
-- `GET /products`: lista productos.
-- `POST /products`: crea un producto.
-- `GET /products/{id}`: consulta un producto.
-- `PUT /products/{id}`: actualiza un producto.
-- `DELETE /products/{id}`: elimina un producto.
-- `PUT /products/{id}/add-stock`: incrementa stock.
-- `GET /products/search`: busca por nombre.
+    USERS {
+        BIGINT id PK
+        VARCHAR email UK
+        VARCHAR password_hash
+        VARCHAR role "CLIENTE | ADMINISTRADOR"
+        BOOLEAN verified
+        VARCHAR full_name
+        VARCHAR phone
+        VARCHAR address
+        VARCHAR profile_image_url
+        TIMESTAMP created_at
+    }
 
-### Pagos y ventas
-- `POST /payments/process`: procesa una compra y registra la venta.
-- `GET /payments/{id}`: consulta una venta.
-- `GET /payments/my-orders`: lista órdenes del usuario autenticado.
-- `GET /payments/all`: lista todas las ventas.
+    PRODUCTS {
+        BIGINT id PK
+        VARCHAR name
+        TEXT description
+        DOUBLE price
+        INT stock
+        VARCHAR image_url
+        VARCHAR category
+        TIMESTAMP created_at
+    }
 
-### Carga y exportación
-- `POST /api/images/upload`: sube una imagen y devuelve su URL pública.
-- `GET /export/clients`: exporta clientes a Excel.
-- `GET /export/products`: exporta productos a Excel.
-- `GET /export/sales`: exporta ventas a Excel.
+    SALES {
+        BIGINT id PK
+        BIGINT user_id FK
+        VARCHAR full_name
+        VARCHAR document_type "dni | ruc"
+        VARCHAR delivery_method "delivery | pickup"
+        VARCHAR payment_method "mercadopago | tarjeta | yape"
+        DOUBLE subtotal
+        DOUBLE shipping_cost
+        DOUBLE total
+        VARCHAR status "PENDIENTE | CONFIRMADO | RECHAZADO"
+        TIMESTAMP created_at
+    }
 
-### Otros
-- `POST /backup/config`: genera un respaldo de archivos de configuración.
-- `GET /health-public`: verifica que el servicio está en línea.
-- `GET /`: estado básico público.
+    SALE_ITEMS {
+        BIGINT id PK
+        BIGINT sale_id FK
+        BIGINT product_id FK
+        INT quantity
+        DOUBLE unit_price
+        DOUBLE subtotal
+    }
 
-## Requisitos
+    VERIFICATION_TOKENS {
+        BIGINT id PK
+        VARCHAR token UK
+        BIGINT user_id FK
+        TIMESTAMP expires_at
+    }
+```
 
-- Java 17
-- Maven 3.9+ o el Maven Wrapper incluido
-- Base de datos disponible si no usas el perfil local con H2
-- Opcional: Supabase, Resend o un servidor SMTP según el entorno
+### Diagrama de Colecciones NoSQL (MongoDB Atlas - `hurios_rally`)
 
-## Configuración
+```mermaid
+classDiagram
+    class audit_logs {
+        +ObjectId _id
+        +String action
+        +String entityType
+        +String entityId
+        +Long userId
+        +String userEmail
+        +String ipAddress
+        +Map~String,Object~ details
+        +LocalDateTime createdAt
+    }
 
-El proyecto arranca por defecto con el perfil `local`.
+    class carts {
+        +ObjectId _id
+        +Long userId
+        +String userEmail
+        +List~CartItemEntry~ items
+        +LocalDateTime updatedAt
+    }
 
-### Variables importantes
-- `PORT`: puerto HTTP del servidor, por defecto `8080`.
-- `SPRING_PROFILES_ACTIVE`: perfil activo, por defecto `local`.
-- `JWT_SECRET`: secreto para firmar tokens.
-- `JWT_EXPIRATION_MINUTES`: duración del token en minutos.
-- `APP_FRONTEND_URL`: URL del frontend autorizado.
-- `APP_CORS_ALLOWED_ORIGINS`: orígenes permitidos por CORS.
-- `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`: configuración SMTP.
-- `RESEND_API_KEY`: clave para envío de correos con Resend.
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`: configuración de Supabase.
-- `BACKUP_BASE_PATH`: ruta base para respaldos.
+    class payment_transactions {
+        +ObjectId _id
+        +Long saleId
+        +Long userId
+        +String userEmail
+        +String preferenceId
+        +String mpPaymentId
+        +String status
+        +String paymentMethod
+        +Double amount
+        +String currency
+        +Map~String,Object~ gatewayResponse
+        +List~PaymentAttempt~ attempts
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
+    }
 
-### Perfil local
+    class product_reviews {
+        +ObjectId _id
+        +Long productId
+        +Long userId
+        +String userEmail
+        +String userName
+        +Integer rating
+        +String comment
+        +LocalDateTime createdAt
+    }
+```
 
-Con `application-local.properties` el proyecto usa H2 en archivo local y activa la consola H2 en `/h2-console`.
+Los scripts de inicialización DDL/DML e índices NoSQL se encuentran en:
+- `src/main/resources/db/migration/schema_and_seed.sql`
+- `src/main/resources/db/migration/mongodb_init.js`
 
-## Cómo ejecutar
+---
 
-### Opción 1: Desarrollo local con Maven Wrapper
+## 2. Comunicación en Tiempo Real con WebSockets
 
+El servidor configura un canal WebSocket bidireccional en `/ws/events` mediante `WebSocketConfig` y `RealtimeNotificationHandler`:
+
+- **Endpoint:** `ws://localhost:8080/ws/events` (local) / `wss://huriosbackend-desarrollofullstack.onrender.com/ws/events` (producción)
+- **Eventos emitidos en tiempo real (`broadcastEvent`):**
+  - `CONNECTED` / `PONG`: Confirmación de conexión activa y conteo de usuarios conectados en vivo (`activeClients`).
+  - `NEW_SALE`: Se emite automáticamente al confirmarse una compra o pago en MercadoPago, notificando a los clientes y actualizando el stock en vivo.
+  - `STOCK_UPDATED`: Se emite cuando un administrador abastece unidades de un repuesto (`PUT /products/{id}/add-stock`).
+  - `PRODUCT_CREATED` / `PRODUCT_UPDATED` / `PRODUCT_DELETED`: Sincroniza instantáneamente el catálogo de repuestos en todas las pantallas abiertas.
+  - `NEW_REVIEW`: Notifica en vivo cuando un cliente califica un producto.
+
+---
+
+## 3. Endpoints Principales de la API REST
+
+### Autenticación y Usuarios (`/auth`, `/user`)
+- `POST /auth/register`: Registro de usuario con contraseña encriptada (`BCrypt`) y auditoría en MongoDB.
+- `POST /auth/login`: Inicio de sesión con generación de JWT y soporte para código de verificación 2FA.
+- `POST /auth/request-password-reset` y `POST /auth/reset-password`: Flujo de recuperación de contraseña por correo.
+- `GET /user/profile` y `PUT /user/profile`: Consulta y actualización de perfil autenticado.
+
+### Catálogo e Inventario (`/products`)
+- `GET /products` y `GET /products/{id}`: Consulta pública del catálogo.
+- `POST /products`, `PUT /products/{id}`, `DELETE /products/{id}`: Gestión CRUD de productos con emisión de eventos WebSocket.
+- `PUT /products/{id}/add-stock`: Incremento de stock con notificación en tiempo real.
+
+### Carrito Persistente en MongoDB (`/cart`)
+- `GET /cart`: Obtiene el carrito del usuario autenticado desde MongoDB.
+- `PUT /cart`: Sincroniza el estado del carrito.
+- `POST /cart/merge`: Fusiona el carrito local de invitado con el carrito en la nube al iniciar sesión.
+- `DELETE /cart`: Vacía el carrito tras completar un pago.
+
+### Pagos y MercadoPago Checkout Pro (`/payments`)
+- `POST /payments/checkout`: Crea la orden en estado `PENDIENTE` en PostgreSQL, genera la preferencia en MercadoPago SDK y guarda la transacción en MongoDB (`payment_transactions`).
+- `GET /payments/verify`: Verifica el pago al retornar de MercadoPago, confirma la orden, descuenta el stock y emite el evento `NEW_SALE` por WebSocket.
+- `POST /payments/webhook`: Receptor de notificaciones IPN/Webhooks de MercadoPago.
+- `POST /payments/process`: Procesamiento directo con Tarjeta o Yape.
+- `GET /payments/my-orders` y `GET /payments/all`: Historial de órdenes de compra.
+- `GET /payments/transactions`: Historial de transacciones desde MongoDB.
+
+### Reseñas y Auditoría en MongoDB (`/products/{id}/reviews`, `/audit`)
+- `GET /products/{productId}/reviews` y `POST /products/{productId}/reviews`: Consulta y publicación de reseñas con promedio de estrellas.
+- `GET /audit`, `GET /audit/user/{userId}`, `GET /audit/action/{action}`: Consulta de registros de auditoría en MongoDB.
+
+---
+
+## 4. Variables de Entorno
+
+Crea un archivo `.env` en la raíz del proyecto basándote en `.env.example`:
+
+| Variable | Descripción | Ejemplo |
+| :--- | :--- | :--- |
+| `SPRING_PROFILES_ACTIVE` | Perfil de ejecución (`local` o `prod`) | `prod` |
+| `DB_HOST` | Host de PostgreSQL (Supabase Pooler) | `aws-0-us-east-2.pooler.supabase.com` |
+| `DB_PORT` | Puerto de PostgreSQL | `5432` |
+| `DB_NAME` | Nombre de la base de datos relacional | `postgres` |
+| `DB_USER` | Usuario de PostgreSQL | `postgres.<project-ref>` |
+| `DB_PASSWORD` | Contraseña de PostgreSQL | `********` |
+| `MONGODB_URI` | Cadena de conexión a MongoDB Atlas | `mongodb+srv://usuario:pass@cluster0.mongodb.net/hurios_rally` |
+| `MONGODB_DATABASE` | Nombre de la base de datos en MongoDB | `hurios_rally` |
+| `JWT_SECRET` | Clave secreta para firma de tokens JWT | `clave-secreta-segura-2026` |
+| `MERCADOPAGO_ACCESS_TOKEN` | Access Token de MercadoPago Checkout Pro | `APP_USR-...` |
+| `MERCADOPAGO_PUBLIC_KEY` | Public Key de MercadoPago | `APP_USR-...` |
+| `APP_FRONTEND_URL` | URL del Frontend para redirecciones y CORS | `https://huriosfrontend-desarrollofullstack.onrender.com` |
+| `APP_CORS_ALLOWED_ORIGINS` | Orígenes permitidos separados por coma | `http://localhost:5173,https://huriosfrontend-desarrollofullstack.onrender.com` |
+
+---
+
+## 5. Instrucciones de Ejecución y Pruebas
+
+### Ejecutar en entorno de desarrollo
 ```bash
 ./mvnw spring-boot:run
 ```
-
-En Windows:
-
-```bash
-mvnw.cmd spring-boot:run
+En Windows PowerShell:
+```powershell
+.\mvnw.cmd spring-boot:run
 ```
 
-### Opción 2: Compilar y ejecutar el JAR
+### Ejecutar la suite de pruebas unitarias (JUnit 5 + Mockito)
+```powershell
+.\mvnw.cmd test
+```
 
-```bash
-./mvnw clean package -DskipTests
+### Compilar empaquetado de producción (JAR)
+```powershell
+.\mvnw.cmd clean package -DskipTests
 java -jar target/huriosbackend-0.0.1-SNAPSHOT.jar
 ```
-
-En Windows:
-
-```bash
-mvnw.cmd clean package -DskipTests
-java -jar target/huriosbackend-0.0.1-SNAPSHOT.jar
-```
-
-### Opción 3: Con Docker
-
-```bash
-docker build -t huriosbackend .
-docker run --rm -p 8080:8080 -e SPRING_PROFILES_ACTIVE=prod huriosbackend
-```
-
-## URLs útiles
-
-- Aplicación: `http://localhost:8080`
-- Swagger UI: `http://localhost:8080/documentacion`
-- Actuator health: `http://localhost:8080/actuator/health`
-- Consola H2: `http://localhost:8080/h2-console`
-
-## Documentación adicional
-
-- `TESTING_README.md`: guía para ejecutar pruebas unitarias.
-- `METRICS_USAGE_EXAMPLE.md`: ejemplo de uso de métricas.
-
-## Notas
-
-- El proyecto no incluye credenciales reales.
-- Para entorno productivo, configura correctamente la base de datos, el correo saliente y las claves de Supabase antes de desplegar.

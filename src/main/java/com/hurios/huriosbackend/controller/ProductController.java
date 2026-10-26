@@ -4,6 +4,8 @@ import com.hurios.huriosbackend.entity.Product;
 import com.hurios.huriosbackend.repository.ProductRepository;
 import com.hurios.huriosbackend.service.ProductService;
 import com.hurios.huriosbackend.service.ValidationService;
+import com.hurios.huriosbackend.websocket.RealtimeNotificationHandler;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +24,9 @@ public class ProductController {
     private final ValidationService validationService;
     private final ProductService productService;
     private final com.hurios.huriosbackend.service.CatalogSyncService catalogSyncService;
+
+    @Autowired(required = false)
+    private RealtimeNotificationHandler realtimeNotificationHandler;
 
     public ProductController(ProductRepository productRepository, 
                              ValidationService validationService,
@@ -102,6 +107,18 @@ public class ProductController {
         product.setStock(currentStock + quantity);
         productRepository.save(product);
 
+        if (realtimeNotificationHandler != null) {
+            realtimeNotificationHandler.broadcastEvent(
+                    "STOCK_UPDATED",
+                    "Stock actualizado para " + product.getName() + " (" + product.getStock() + " unid.)",
+                    Map.of(
+                            "productId", product.getId(),
+                            "productName", product.getName(),
+                            "newStock", product.getStock()
+                    )
+            );
+        }
+
         return ResponseEntity.ok(Map.of(
                 "message", "Stock actualizado correctamente",
                 "newStock", product.getStock()
@@ -173,6 +190,20 @@ public class ProductController {
             }
 
             Product savedProduct = productRepository.save(product);
+
+            if (realtimeNotificationHandler != null) {
+                realtimeNotificationHandler.broadcastEvent(
+                        "PRODUCT_CREATED",
+                        "Nuevo repuesto en catálogo: " + savedProduct.getName(),
+                        Map.of(
+                                "productId", savedProduct.getId(),
+                                "productName", savedProduct.getName(),
+                                "price", savedProduct.getPrice(),
+                                "stock", savedProduct.getStock() != null ? savedProduct.getStock() : 0
+                        )
+                );
+            }
+
             return ResponseEntity.ok(savedProduct);
         } catch (Exception e) {
             return ResponseEntity.status(500).body(
@@ -245,6 +276,19 @@ public class ProductController {
             }
 
             Product updatedProduct = productRepository.save(product);
+
+            if (realtimeNotificationHandler != null) {
+                realtimeNotificationHandler.broadcastEvent(
+                        "PRODUCT_UPDATED",
+                        "Producto actualizado: " + updatedProduct.getName(),
+                        Map.of(
+                                "productId", updatedProduct.getId(),
+                                "productName", updatedProduct.getName(),
+                                "price", updatedProduct.getPrice()
+                        )
+                );
+            }
+
             return ResponseEntity.ok(updatedProduct);
         } catch (Exception e) {
             return ResponseEntity.status(500).body(
@@ -264,7 +308,17 @@ public class ProductController {
         }
 
         try {
+            String deletedName = maybe.get().getName();
             productRepository.deleteById(id);
+
+            if (realtimeNotificationHandler != null) {
+                realtimeNotificationHandler.broadcastEvent(
+                        "PRODUCT_DELETED",
+                        "Producto retirado del catálogo: " + deletedName,
+                        Map.of("productId", id, "productName", deletedName)
+                );
+            }
+
             return ResponseEntity.ok(Map.of(
                     "message", "Producto eliminado correctamente",
                     "id", id

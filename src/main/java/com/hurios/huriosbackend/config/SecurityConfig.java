@@ -38,8 +38,8 @@ public class SecurityConfig {
                                 "/swagger-ui.html"
                         ).permitAll()
 
-                        //  VALIDACIONES INTERNAS DEL SERVIDOR
-                        .requestMatchers("/", "/health-public").permitAll()
+                        //  VALIDACIONES INTERNAS DEL SERVIDOR Y WEBSOCKETS EN TIEMPO REAL
+                        .requestMatchers("/", "/health-public", "/ws/**").permitAll()
 
                         //  RUTAS PÚBLICAS DEL SISTEMA
                         .requestMatchers("/auth/**").permitAll()
