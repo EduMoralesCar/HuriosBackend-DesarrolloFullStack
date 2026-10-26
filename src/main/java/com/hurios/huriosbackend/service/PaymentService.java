@@ -12,6 +12,7 @@ import com.hurios.huriosbackend.repository.SaleItemRepository;
 import com.hurios.huriosbackend.repository.SaleRepository;
 import com.hurios.huriosbackend.repository.UserRepository;
 import com.hurios.huriosbackend.repository.mongo.PaymentTransactionRepository;
+import com.hurios.huriosbackend.websocket.RealtimeNotificationHandler;
 import com.mercadopago.MercadoPagoConfig;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
@@ -57,6 +58,9 @@ public class PaymentService {
 
     @Autowired(required = false)
     private AuditService auditService;
+
+    @Autowired(required = false)
+    private RealtimeNotificationHandler realtimeNotificationHandler;
 
     @Value("${mercadopago.access-token:}")
     private String mpAccessToken;
@@ -361,6 +365,18 @@ public class PaymentService {
                 auditService.logPurchase(sale.getId(), sale.getUser().getId(), sale.getUser().getEmail(),
                         sale.getTotal(), resolvedPaymentMethod, null);
             }
+
+            if (realtimeNotificationHandler != null) {
+                realtimeNotificationHandler.broadcastEvent(
+                        "NEW_SALE",
+                        "Nueva compra confirmada (#" + sale.getId() + ") — Stock actualizado en tiempo real",
+                        Map.of(
+                                "saleId", sale.getId(),
+                                "total", sale.getTotal(),
+                                "paymentMethod", resolvedPaymentMethod
+                        )
+                );
+            }
         } else if ("REJECTED".equals(mongoStatus) && !"CONFIRMADO".equalsIgnoreCase(sale.getStatus())) {
             sale.setStatus("RECHAZADO");
             sale.setUpdatedAt(LocalDateTime.now());
@@ -479,6 +495,18 @@ public class PaymentService {
             }
             tx.addAttempt("APPROVED", "DIRECT-" + sale.getId(), "Pago directo confirmado");
             paymentTransactionRepository.save(tx);
+        }
+
+        if (realtimeNotificationHandler != null) {
+            realtimeNotificationHandler.broadcastEvent(
+                    "NEW_SALE",
+                    "Nueva compra procesada (#" + sale.getId() + ") — Stock actualizado en tiempo real",
+                    Map.of(
+                            "saleId", sale.getId(),
+                            "total", sale.getTotal(),
+                            "paymentMethod", request.getPaymentMethod() != null ? request.getPaymentMethod() : "tarjeta"
+                    )
+            );
         }
 
         return new PaymentDtos.ProcessPaymentResponse(
