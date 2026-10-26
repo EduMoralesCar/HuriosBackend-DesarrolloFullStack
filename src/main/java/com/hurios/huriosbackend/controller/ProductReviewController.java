@@ -2,6 +2,8 @@ package com.hurios.huriosbackend.controller;
 
 import com.hurios.huriosbackend.document.ProductReviewDocument;
 import com.hurios.huriosbackend.service.ProductReviewService;
+import com.hurios.huriosbackend.websocket.RealtimeNotificationHandler;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -17,6 +19,9 @@ import java.util.Map;
 public class ProductReviewController {
 
     private final ProductReviewService reviewService;
+
+    @Autowired(required = false)
+    private RealtimeNotificationHandler realtimeNotificationHandler;
 
     public ProductReviewController(ProductReviewService reviewService) {
         this.reviewService = reviewService;
@@ -69,6 +74,19 @@ public class ProductReviewController {
             );
             Map<String, Object> summary = reviewService.getProductReviewsSummary(productId);
             summary.put("savedReview", saved);
+
+            if (realtimeNotificationHandler != null) {
+                realtimeNotificationHandler.broadcastEvent(
+                        "NEW_REVIEW",
+                        saved.getUserName() + " calificó un repuesto con " + saved.getRating() + " estrellas",
+                        Map.of(
+                                "productId", productId,
+                                "rating", saved.getRating(),
+                                "userName", saved.getUserName()
+                        )
+                );
+            }
+
             return ResponseEntity.ok(summary);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
