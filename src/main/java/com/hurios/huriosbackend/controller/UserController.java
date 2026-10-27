@@ -46,6 +46,7 @@ public class UserController {
             profile.put("fullName", user.getFullName());
             profile.put("phone", user.getPhone());
             profile.put("address", user.getAddress());
+            profile.put("dni", user.getDni());
             profile.put("role", user.getRole());
             profile.put("createdAt", user.getCreatedAt());
             profile.put("profileImage", user.getProfileImage());
@@ -79,6 +80,13 @@ public class UserController {
             }
             if (updates.containsKey("address")) {
                 user.setAddress(updates.get("address"));
+            }
+            if (updates.containsKey("dni")) {
+                String dni = updates.get("dni");
+                if (dni != null && !dni.isBlank() && !dni.matches("\\d{8}")) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "El DNI debe tener 8 dígitos"));
+                }
+                user.setDni(dni == null || dni.isBlank() ? null : dni);
             }
             if (updates.containsKey("profileImage")) {
                 user.setProfileImage(updates.get("profileImage"));
