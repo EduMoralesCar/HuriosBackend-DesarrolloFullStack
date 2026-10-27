@@ -33,6 +33,9 @@ public class User {
     @Column(name = "address")
     private String address;
 
+    @Column(name = "dni", length = 8)
+    private String dni;
+
     @Column(name = "profile_image")
     private String profileImage;
 
@@ -75,6 +78,9 @@ public class User {
 
     public String getAddress(){return address;}
     public void setAddress(String address){this.address = address;}
+
+    public String getDni(){return dni;}
+    public void setDni(String dni){this.dni = dni;}
 
     public String getRole(){return role;}
     public void setRole(String role){this.role = role;}
