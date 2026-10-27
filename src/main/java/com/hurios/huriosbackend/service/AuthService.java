@@ -52,6 +52,11 @@ public class AuthService {
 
     @Transactional
     public String register(String email, String password, String fullName, String phone) throws Exception {
+        return register(email, password, fullName, phone, null);
+    }
+
+    @Transactional
+    public String register(String email, String password, String fullName, String phone, String dni) throws Exception {
         Optional<User> existing = userRepo.findByEmail(email);
         if (existing.isPresent()) {
             return "Correo ya registrado.Regístrese con otro correo.";
@@ -62,6 +67,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(password));
         user.setFullName(fullName);
         user.setPhone(phone);
+        user.setDni(dni != null && dni.matches("\\d{8}") ? dni : null);
         user.setRole("CLIENTE");
         user.setVerified(false);
         userRepo.save(user);

@@ -33,8 +33,12 @@ public class AuthController {
         String password = body.get("password");
         String fullName = body.get("fullName");
         String phone = body.get("phone");
+        String dni = body.get("dni");
         try {
-            String msg = authService.register(email, password, fullName, phone);
+            String msg = authService.register(email, password, fullName, phone, dni);
+            if (msg != null && msg.startsWith("Correo ya registrado")) {
+                return ResponseEntity.badRequest().body(Map.of("error", msg));
+            }
             auditService.logUserRegistration(null, email, request);
             return ResponseEntity.ok(Map.of("message", msg));
         } catch (Exception e) {
