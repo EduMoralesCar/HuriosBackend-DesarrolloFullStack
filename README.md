@@ -7,6 +7,19 @@ Backend empresarial en **Spring Boot 3.5.6 (Java 17)** para el e-commerce de rep
 
 ---
 
+## 🔑 Credenciales de Acceso para Pruebas / Demostración
+
+Para la evaluación del sistema y las pruebas de interacción simultánea en tiempo real (**prueba de espejo**):
+
+| Rol | Correo Electrónico | Contraseña | Vistas y Funcionalidades Disponibles |
+| :--- | :--- | :--- | :--- |
+| **ADMINISTRADOR** | `admin@huriosrally.com` | `Demo1234*` | Redirección directa al **Dashboard de Inteligencia Comercial** (`/admin-profile`), KPIs en vivo, segmentadores Power BI, monitor de transacciones en tiempo real, gestión de inventario y emisión de promociones vía WebSocket. |
+| **CLIENTE** | `vendedor@huriosrally.com` | `Demo1234*` | Navegación de catálogo, carrito persistente en MongoDB, flujo de checkout con autocompletado de datos, compras simuladas con Yape/Tarjeta/MercadoPago y calificación post-compra con reseñas. |
+
+> **Nota para Pruebas en Tiempo Real:** Puedes abrir dos pestañas en el mismo navegador (Pestaña 1 como Administrador y Pestaña 2 como Cliente). El sistema aísla las sesiones por pestaña (`sessionStorage`), permitiendo observar cómo una compra simulada por el cliente actualiza los ingresos y descuenta el stock en el Dashboard del administrador sin recargar la página.
+
+---
+
 ## 1. Arquitectura de Datos Híbrida (Relacional + NoSQL)
 
 El sistema emplea **Persistencia Políglota** separando las responsabilidades transaccionales ACID de los documentos flexibles de alta frecuencia:
